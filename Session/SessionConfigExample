@@ -1,0 +1,302 @@
+#[Step_example_for_black_box]
+#name = <descriptive name>
+#step_type = blackbox
+#next_step = Step_4
+#module = python
+### the no_option name is used where the param is sent unnamed (e.g. rm /path/filename will be module = rm
+###                       run_params = no_option<</path/filename
+#run_params = no_option<<script_that_do_something.py
+#    actual_param<<value
+
+[Step_1]
+name = QualityAssessment
+step_type = pipeline
+next_step = Step_2
+error_step = Step_-1
+run_params = config_file<<'/home/alu/hillelr/scripts/PipelineConfigs/PiplineConfigs170608/fastqcAnalysis.conf'
+    root_dir<<'%(input_dir)s'
+    subdirs_prefix<<'%(subdirs_prefix)s'
+    files_suffix<<'%(files_suffix)s'
+    log_path<<'%(log_dir)s/fastqc'
+    kill_flag<<'%(log_dir)s/fastqc/killme.flag'
+    recursion_depth<<100
+    output_dir<<'%(output_dir)s'
+    truncs<<%(truncs)s
+    config_args<<{'suffix': '%(files_suffix)s', 'mateprefix': '%(mateprefix)s', 'mate1': '%(mate1)s',
+     'mate2': '%(mate2)s'}
+
+[Step_2]
+name = Alignment
+step_type = pipeline
+next_step = Step_2r
+error_step = Step_-1
+run_params = config_file<<'/home/alu/hillelr/scripts/PipelineConfigs/PiplineConfigs170608/runSTAR.conf'
+    root_dir<<'%(input_dir)s'
+    subdirs_prefix<<'%(subdirs_prefix)s'
+    files_suffix<<'%(files_suffix)s'
+    log_path<<'%(log_dir)s/STAR'
+    kill_flag<<'%(log_dir)s/star/killme'
+    recursion_depth<<100
+    output_dir<<'%(output_dir)s'
+    truncs<<%(truncs)s
+    config_args<<{'suffix': '%(files_suffix)s', 'mateprefix': '%(mateprefix)s', 'mate1': '%(mate1)s',
+     'mate2': '%(mate2)s', 'uncompress_fastq_cmd': '%(uncompress_fastq_cmd)s', 'STAR': '%(STAR)s',
+     'STAR_cpu_params': '%(STAR_cpu_params)s', 'STAR_outputs': '%(STAR_outputs)s',
+     'STAR_SJ_map_params': '%(STAR_SJ_map_params)s', 'STAR_mm_map_params': '%(STAR_mm_map_params)s',
+      'output_format': '%(STAR_output_format)s', 'STAR_genome': '%(STAR_genome)s'}
+
+[Step_2r]
+name = releaseSTAR
+step_type = blackbox
+module = %(STAR)s
+next_step = Step_3
+error_step = Step_3 #continue anyway
+run_params = --genomeDir<<'%(STAR_genome)s'
+    --genomeLoad<<'Remove'
+
+[Step_3]#should be converted to the white boxes inside...
+name = run statistics
+step_type = pipeline
+next_step = Step_4
+error_step = Step_-1
+run_params = config_file<<'/home/alu/hillelr/scripts/PipelineConfigs/PiplineConfigs170608/runStatistics.conf'
+    root_dir<<'%(input_dir)s'
+    subdirs_prefix<<'%(subdirs_prefix)s'
+    files_suffix<<'%(files_suffix)s'
+    log_path<<'%(log_dir)s/statistics'
+    kill_flag<<'%(log_dir)s/statistics/killme'
+    recursion_depth<<100
+    output_dir<<'%(output_dir)s'
+    truncs<<%(truncs)s
+    config_args<<{'statistics_output_dir':'%(output_dir)s/qualityAndRunStats'}
+
+[Step_4]
+name = run alu index part 1
+step_type = pipeline
+next_step = Step_4b
+error_step = Step_-1
+run_params = config_file<<'/home/alu/hillelr/scripts/PipelineConfigs/PiplineConfigs170608/runAlu_partA.conf'
+    root_dir<<'%(input_dir)s'
+    subdirs_prefix<<'%(subdirs_prefix)s'
+    files_suffix<<'%(files_suffix)s'
+    log_path<<'%(log_dir)s/aluindex'
+    kill_flag<<'%(log_dir)s/aluindex/killme'
+    recursion_depth<<100
+    output_dir<<'%(output_dir)s'
+    truncs<<%(truncs)s
+
+[Step_4b]
+name = run alu index part 2
+step_type = whitebox
+target_function = run_alu_index_part2
+module = Session.BlackBoxesWrapperSctipts.alu_index_wrapper
+run_function = run_alu_index_part2
+next_step = Step_4c
+error_step = Step_-1
+run_params = input_dir<<'%(input_dir)s'
+    part_a_output_dir<<'%(output_dir)s'
+    input_file_fingerprint<<'fastq'
+    output_dir<<'%(output_dir)s/%(timestamp)s_AEI'
+    part_b_script<<'/home/alu/hillelr/scripts/PipelineConfigs/PiplineConfigs170608/get_sample_stat_new_index_PE.pl'
+    truncs<<%(truncs)s
+
+[Step_4c]
+name = clean alu index part 1
+step_type = pipeline
+next_step = Step_5
+error_step = Step_-1
+run_params = config_file<<'/home/alu/hillelr/scripts/AluIndex/CleanAlu_partA.conf'
+    root_dir<<'%(input_dir)s'
+    subdirs_prefix<<'%(subdirs_prefix)s'
+    files_suffix<<'%(files_suffix)s'
+    log_path<<'%(log_dir)s/CleanAEI'
+    kill_flag<<'%(log_dir)s/CleanAEI/killme'
+    recursion_depth<<100
+    output_dir<<'%(output_dir)s'
+    truncs<<%(truncs)s
+
+[Step_5]
+name = runHE
+module = Session.BlackBoxesWrapperSctipts.run_he
+#class =
+step_type = whitebox
+target_function = run_he_script
+next_step = Step_6
+error_step = Step_6
+#init_params =
+run_params = input_dir<<'%(output_dir)s'
+    output_dir<<'%(output_dir)s/%(timestamp)s_HEToolOutput'
+    files_suffix<<'unmapped'
+    output_files_dir<<'%(output_dir)s/%(timestamp)s_HEToolSummery'
+    sites_folder<<'%(output_dir)s/%(timestamp)s_HEToolSummery/SitesSummery'
+    run_single_end<<%(run_HE_SE)s
+    run_paired_end<<%(run_HE_PE)s
+    repeat_on_noise<<%(HE_repeat_on_noise)s
+    STAR_output<<'%(output_dir)s'
+    keep_bams<<%(HE_keep_bams)s
+    stranded<<%(stranded)s
+    max_pre_g_pc<<%(HE_max_pre_g_pc)s
+    min_past_g_pc<<%(HE_min_past_g_pc)s
+    strict_check<<%(HE_strict_check)s
+    folder_names_only<<%(HE_folder_names_only)s
+    bash_args<<{'genome_bwa_index_prefix': '%(HE_genome_bwa_index_prefix)s', 'genome_fasta': '%(HE_genome_fasta)s',
+      'genome_transformed_bwa_index_prefix': '%(HE_genome_transformed_bwa_index_prefix)s'}
+
+
+[Step_6]
+name = runKnownKhenBillyConserved
+step_type = pipeline
+next_step = Step_7
+#init_params =
+run_params = config_file<<'/home/alu/hillelr/scripts/PipelineConfigs/PiplineConfigs170608/REDIToolsknownPipeline.conf'
+    root_dir<<'%(input_dir)s'
+    subdirs_prefix<<'%(subdirs_prefix)s'
+    files_suffix<<'%(files_suffix)s'
+    log_path<<'%(log_dir)s/star'
+    kill_flag<<'%(log_dir)s/star/killme'
+    recursion_depth<<100
+    output_dir<<'%(output_dir)s'
+    truncs<<%(truncs)s
+    config_args<<{'known_sites_bed':'%(known_sites_bed)s', 'BAM_dir_OVERRIDE_ONLY_FORMAT': '%(BAM_dir)s',
+        'mismatch_prevalence': '%(Known_mismatch_prevalence)s', 'genome': '%(fasta_genome)s',
+        'trimm': '%(KnownTrimm)s', 'min_mm_reads' : '%(Known_min_mm_reads)s',
+        'bases_near_splice_site': '%(Known_bases_near_splice_site)s', 'min_reads_coverage': '%(Known_min_reads_coverage)s',
+        'phred_score_offset': '%(phred_score_offset)s', 'extra_params': '%(Known_extra_params)s',
+         'aligner_bam_suffix': '%(Known_aligner_bam_suffix)s', 'input_bam_format': '%(Known_input_bam_format)s',
+         'output_suffix': '%(Known_output_suffix)s', 'known_sites_copy_suff': '%(Known_sites_copy_suff)s'}
+
+
+[Step_7]
+name = runClusterer
+module = ProcessingPlugins.MismatchesQuantification.RNAEditingQuantificationClusterer
+# class = RNAEditingQuantificationClusterer
+step_type = whitebox
+target_function = main
+next_step = Step_8
+#init_params =
+run_params = Known_min_common_samples<<%(Known_min_common_samples_pc)s
+    clustering_helper<<'REDIToolsKnownClusteringHelper'
+    minimal_expression<<%(Known_minimal_expression)s
+    strict_min_expression<<%(Known_strict_min_expression)s
+    root_path<<'%(output_dir)s'
+    output_path<<'%(Known_output_dir)s'
+    include_path<<'%(Known_output_suffix)s'
+
+[Step_8]
+name = runKnownHE
+step_type = pipeline
+next_step = Step_9
+#init_params =
+run_params = config_file<<'/home/alu/hillelr/scripts/PipelineConfigs/PiplineConfigs170608/REDIToolsknownPipeline.conf'
+    root_dir<<'%(input_dir)s'
+    subdirs_prefix<<'%(subdirs_prefix)s'
+    files_suffix<<'%(files_suffix)s'
+    log_path<<'%(log_dir)s/star'
+    kill_flag<<'%(log_dir)s/star/killme'
+    recursion_depth<<100
+    output_dir<<'%(output_dir)s'
+    truncs<<%(truncs)s
+    config_args<<{'known_sites_bed':'%(output_dir)s/%(timestamp)s_HEToolSummery/SitesSummery/SE_HE_sites.ForRedITools.bed',
+        'BAM_dir_OVERRIDE_ONLY_FORMAT': '%(BAM_dir)s',
+        'mismatch_prevalence': '%(Known_mismatch_prevalence)s', 'genome': '%(fasta_genome)s',
+        'trimm': '%(KnownTrimm)s', 'min_mm_reads' : '%(Known_min_mm_reads)s',
+        'bases_near_splice_site': '%(Known_bases_near_splice_site)s', 'min_reads_coverage': '%(Known_min_reads_coverage)s',
+        'phred_score_offset': '%(phred_score_offset)s', 'extra_params': '%(Known_extra_params)s',
+         'aligner_bam_suffix': '%(Known_aligner_bam_suffix)s', 'input_bam_format': '%(Known_input_bam_format)s',
+         'output_suffix': '%(Known_HE_output_suffix)s', 'known_sites_copy_suff': '%(Known_HE_sites_copy_suff)s'}
+
+
+[Step_9]
+name = runClustererHE
+module = ProcessingPlugins.MismatchesQuantification.RNAEditingQuantificationClusterer
+# class = RNAEditingQuantificationClusterer
+step_type = whitebox
+target_function = main
+next_step = Step_10
+#init_params =
+run_params = Known_min_common_samples<<%(Known_min_common_samples_pc)s
+    clustering_helper<<'REDIToolsKnownClusteringHelper'
+    minimal_expression<<%(Known_minimal_expression)s
+    strict_min_expression<<%(Known_strict_min_expression)s
+    root_path<<'%(output_dir)s'
+    output_path<<'%(Known_output_dir)s'
+    include_path<<'%(Known_HE_output_suffix)s'
+
+[DEFAULT]
+timestamp =
+scripts_dir =
+input_dir =
+output_dir =
+Enable = True
+AcceptPassedValues = False
+# ----- used in various, relate to input fastqs -----
+phred_score_offset = 33
+stranded = False
+files_suffix = fastq.gz
+
+# ----- piplineManagerArgs -----
+truncs = (0,2)
+subdirs_prefix =
+
+# ----- used in fastqc, STAR -----
+mateprefix = _
+mate1 = 1
+mate2 = 2
+
+# ----- used in STAR -----
+STAR_genome = /home/alu/miridanan/src/STAR/hg19/UCSC_74
+uncompress_fastq_cmd = zcat
+STAR = STAR252
+STAR_cpu_params = --genomeLoad LoadAndKeep --limitBAMsortRAM 20000000000 --outBAMsortingThreadN 5 --runThreadN 8
+STAR_outputs = --outReadsUnmapped Fastx  --outSAMattributes All  --outSAMtype BAM SortedByCoordinate  --outWigType bedGraph  --quantMode GeneCounts
+STAR_SJ_map_params = --alignSJoverhangMin 8 --alignIntronMax 1000000
+STAR_mm_map_params = --alignMatesGapMax 1000000 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.1 --outFilterMultimapNmax 1
+STAR_output_format = %%(output_dir)s/%%(file_name)s
+
+# ----- Hyper Editing -----
+run_HE_SE = True
+run_HE_PE = True
+HE_repeat_on_noise = True
+HE_max_noise_ratio = 0.10
+HE_keep_bams = False
+HE_max_pre_g_pc = 0.2
+HE_min_past_g_pc = 0.25
+HE_strict_check = False
+HE_folder_names_only = False
+HE_genome_bwa_index_prefix = /private/common/Data/Genomes/Human/hg19.bwa_index/hg19
+HE_genome_transformed_bwa_index_prefix = /private/common/Data/Genomes/Human/hg19-transformed.bwa_index/hg19
+HE_genome_fasta = /private/common/Data/Genomes/Human/hg19/hg19.fa
+
+# ----- Editing Index -----
+
+# ----- REDIToolsKnown -----
+known_sites_bed = /home/alu/hillelr/GeneralData/EditingSites/GM_YH_conserved_RADAR_khen.TAB.sorted.txt
+BAM_dir =
+Known_mismatch_prevalence = 0.001
+fasta_genome = /private/dropbox/Genomes/Human/hg19.tophat/hg19_1L.fa
+KnownTrimm = [5-5]
+Known_min_mm_reads = 1
+Known_bases_near_splice_site = 1
+Known_min_reads_coverage = 1
+Known_extra_params =
+Known_aligner_bam_suffix = Aligned.sortedByCoord.out.bam
+Known_output_suffix = .REDItoolKnown.out.tab # Note - this must match with the clustering module.
+Known_input_bam_format = %(BAM_dir)s/%%(file_name)s%(Known_aligner_bam_suffix)s
+Known_sites_copy_suff = %(timestamp)s_known_sites_bed.txt
+
+# -- Known clustering/summery --
+Known_min_common_samples_pc = 1
+Known_minimal_expression = 2
+Known_strict_min_expression = 10
+Known_output_dir = %(output_dir)s/%(timestamp)s_KnownAnalysisSummery
+
+# -- Known HE/summery --
+Known_HE_sites_copy_suff = %(timestamp)s_HE_sites_bed.txt
+Known_HE_output_suffix = .REDItoolKnown.HE.out.tab
+Known_min_common_samples_pc = 0
+Known_minimal_expression = 0
+Known_strict_min_expression = 10
+Known_output_dir = %(output_dir)s/%(timestamp)s_HE_REDIToolsAnalysisSummery
+
+[Run]
+# param = name<<value
