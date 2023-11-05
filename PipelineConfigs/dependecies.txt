@@ -1,0 +1,2 @@
+- aligned BAM file name must be identical across all pipelines, as it used in many of them. 
+- many pip;line depend on the version of the script - input_file, constraint, condition
